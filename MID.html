@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Monetary Incentive Delay Task</title>
+    <link href="/jspsych-6.0.4/css/jspsych.css" rel="stylesheet" type="text/css"></link>
+    <script src="/jspsych-6.0.4/jspsych.js"></script>
+    <script src="/jspsych-6.0.4/plugins/jspsych-html-keyboard-response.js"></script>
+    <script src="jspsych-6.0.4/plugins/jspsych-image-keyboard-response.js"></script>
+    <style>
+
+    </style>
+</head>
+<body></body>
+<script>
+	var timeline = []
+	var instructions = {
+		type: "html-keyboard-response",
+		stimulus: "<p>This block will consist of 25 trials.</p>" +
+			"<p>The fixation will appear followed by the target. Try to press the ENTER key as quickly as possible while the target is displayed." +
+			"<p></p><p>Press any key to begin.</p>"
+	}
+	
+	timeline.push(instructions)
+	
+	var fixation = {
+        type: 'html-keyboard-response',
+        myvar: 'fixation',
+        stimulus: '<div style="font-size:60px;">+</div>',
+        choices: jsPsych.NO_KEYS,
+        trial_duration: function(){
+          return jsPsych.randomization.sampleWithoutReplacement([500, 1250, 2000], 1)[0]
+        }
+    }
+    
+    var test = {
+        type: "html-keyboard-response",
+        stimulus: '<div style="display: block; height: 80px; width: 80px; background: #666; border-radius: 50%;"></div>',
+        trial_duration: 600,
+        choices: ['Enter', 'Space']
+    }
+    
+    var feedback = {
+    	type: "html-keyboard-response",
+    	stimulus: function(){
+    		var trialData = JSON.parse(jsPsych.data.get().last(2).json());
+    		console.log('trial_data:', trialData[0]);
+    		var msg = trialData[0].rt ? 'You Win!!!' : 'Sorry. You Lose.';
+    		return '<p>' + msg + '</p>';
+    	}
+    }
+    
+	var test_procedure = {
+        timeline: [fixation, test, fixation, feedback],
+        repetitions: 3
+    }
+    timeline.push(test_procedure)
+
+//    timeline.push(fixation)
+//    timeline.push(test)
+//    timeline.push(fixation)
+//    timeline.push(feedback)
+    
+    jsPsych.init({
+          timeline: timeline,
+          on_finish: function() {
+//          	  console.log('data:', jsPsych.data)
+          	  console.log('get:', jsPsych.data.get())
+    	  	  jsPsych.data.displayData()
+          }
+    })
+
+</script>
+</html>

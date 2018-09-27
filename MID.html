@@ -2,17 +2,31 @@
 <html>
 <head>
     <title>Monetary Incentive Delay Task</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/css/bootstrap.min.css" integrity="sha384-MCw98/SFnGE8fJT3GXwEOngsV7Zt27NXFoaoApmYm81iuXoPkFOJwJ8ERdknLPMO" crossorigin="anonymous">
     <link href="/jspsych-6.0.4/css/jspsych.css" rel="stylesheet" type="text/css"></link>
     <script src="/jspsych-6.0.4/jspsych.js"></script>
     <script src="/jspsych-6.0.4/plugins/jspsych-html-keyboard-response.js"></script>
     <script src="jspsych-6.0.4/plugins/jspsych-image-keyboard-response.js"></script>
     <style>
-
+        #results-wr {
+            margin-top: 1rem;
+        }
     </style>
 </head>
-<body></body>
+<body>
+    <div id="results"></div>
+</body>
+<script src="https://code.jquery.com/jquery-3.3.1.slim.min.js" integrity="sha384-q8i/X+965DzO0rT7abK41JStQIAqVgRVzpbzo5smXKp4YfRvH+8abtTE1Pi6jizo" crossorigin="anonymous"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.3/umd/popper.min.js" integrity="sha384-ZMP7rVo3mIykV+2+9J3UJ46jBk0WLaUAdn689aCwoqbBJiSnjAK/l8WvCWPIPm49" crossorigin="anonymous"></script>
+<script src="https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/js/bootstrap.min.js" integrity="sha384-ChfqqxuZUCnJSK3+MXmPNIyE6ZbWh2IMqE241rYiqJxyMiZ6OW/JmZQ5stwEULTy" crossorigin="anonymous"></script>
 <script>
-	var timeline = []
+    function jitterTime(){
+        return jsPsych.randomization.sampleWithoutReplacement([500, 1250, 2000], 1)[0]
+    }
+
+    var results = {};
+    var regex = /[0-9]\.[0-9]\-[0-9]\.[0-9]\-1\.[0-9]/g;
+	var timeline = [];
 	var instructions = {
 		type: "html-keyboard-response",
 		stimulus: "<p>This block will consist of 25 trials.</p>" +
@@ -27,31 +41,40 @@
         myvar: 'fixation',
         stimulus: '<div style="font-size:60px;">+</div>',
         choices: jsPsych.NO_KEYS,
-        trial_duration: function(){
-          return jsPsych.randomization.sampleWithoutReplacement([500, 1250, 2000], 1)[0]
-        }
+        trial_duration: function() { return jitterTime(); }
     }
     
     var test = {
         type: "html-keyboard-response",
         stimulus: '<div style="display: block; height: 80px; width: 80px; background: #666; border-radius: 50%;"></div>',
         trial_duration: 600,
-        choices: ['Enter', 'Space']
+        choices: ['Enter', 'Space'],
+        data: {
+            target: true
+        },
+        on_finish: function(data){
+            data.hit = data.rt ? true : false;
+        }
     }
     
     var feedback = {
     	type: "html-keyboard-response",
     	stimulus: function(){
-    		var trialData = JSON.parse(jsPsych.data.get().last(2).json());
-    		console.log('trial_data:', trialData[0]);
-    		var msg = trialData[0].rt ? 'You Win!!!' : 'Sorry. You Lose.';
+            var targetData = JSON.parse(
+                jsPsych.data.getLastTimelineData().filter({target: true}).json()
+                ).pop();
+            console.log(targetData);
+            // console.log(JSON.parse(jsPsych.data.getLastTrialData(2).json()));
+
+    		var msg = targetData.hit ? 'You Win!!!' : 'Sorry. You Lose.';
     		return '<p>' + msg + '</p>';
-    	}
+        },
+        trial_duration: function() { return jitterTime(); }
     }
     
 	var test_procedure = {
         timeline: [fixation, test, fixation, feedback],
-        repetitions: 3
+        repetitions: 11
     }
     timeline.push(test_procedure)
 
@@ -63,11 +86,40 @@
     jsPsych.init({
           timeline: timeline,
           on_finish: function() {
-//          	  console.log('data:', jsPsych.data)
-          	  console.log('get:', jsPsych.data.get())
-    	  	  jsPsych.data.displayData()
+              results.correct_trials = JSON.parse(jsPsych.data.get().filter({hit: true}).json())
+              results.incorrect_trials = JSON.parse(jsPsych.data.get().filter({hit: false}).json())
+
+            //   console.log('results: ', results);
+              //   jsPsych.data.displayData()
+              processResults();
+              displayResults();
           }
     })
+
+    function processResults() {
+        console.log('results: ', results);
+        
+        results.correct_trials.forEach(function (trial) {
+            delete trial.stimulus;
+        })
+        results.incorrect_trials.forEach(function (trial) {
+            delete trial.stimulus;
+        })
+        results.success_rate = results.correct_trials.length / (results.correct_trials.length + results.incorrect_trials.length);
+    }
+    function displayResults() {
+        $('.jspsych-content-wrapper').remove();
+        var resultsHtml = $('<div id="results-wr" class="container"><h1>Results:</h1></div>');
+        resultsHtml.append(`<p>You scored ${results.success_rate * 100} %<p>`);
+        resultsHtml.append(prettyPrint(results));
+        $('body').append(resultsHtml);
+    }
+
+    function prettyPrint(obj) {
+        var dataString = JSON.stringify(obj, null, 3);
+        var styles = 'font-size: 0.7rem; background: #eee; border: 1px solid #aaa;'
+        return `<pre style="${styles}">${dataString}</pre>`;
+    }
 
 </script>
 </html>

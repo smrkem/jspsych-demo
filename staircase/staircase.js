@@ -17,6 +17,8 @@ function Staircase(stairs) {
         this.stairs.operation = stairs.operation || 'add';
         this.stairs.successiveGood = 0;
         this.stairs.successiveBad = 0;
+        this.stairs.currentDirection = null;
+        this.stairs.hasReversed = false;
         this.stairs.verbosity = stairs.verbosity || 0;
         if (this.stairs.verbosity) {
             console.log("Built staircase with " +
@@ -31,7 +33,7 @@ function Staircase(stairs) {
         },
         multiply: function(stair) {
           if (stair.successiveBad >= stair.up) {
-            stair.successiveBad = 0;
+            stair.successiveSameSteps = 0;
             var newVal = Math.floor(stair.values[stair.values.length - 1] * stair.factor);
             if (stair.verbosity > 0) {
               console.log("Decreasing stair difficulty. Setting new value to " + newVal + "ms.");
@@ -39,6 +41,7 @@ function Staircase(stairs) {
             return newVal;
           }
           else {
+            stair.successiveSameSteps++;
             return stair.values[stair.values.length - 1];
           }
         }
@@ -49,7 +52,7 @@ function Staircase(stairs) {
         },
         multiply: function(stair) {
           if (stair.successiveGood >= stair.down) {
-            stair.successiveGood = 0;
+            stair.successiveSameSteps = 0;
             var newVal = Math.floor(stair.values[stair.values.length - 1] / stair.factor);
             if (stair.verbosity > 0) {
               console.log("Increasing stair difficulty. Settin new value to " + newVal + "ms.");
@@ -57,6 +60,7 @@ function Staircase(stairs) {
             return newVal;
           }
           else {
+            stair.successiveSameSteps++;
             return stair.values[stair.values.length - 1];
           }
         }
@@ -83,7 +87,22 @@ Staircase.prototype.addResponse = function(resp) {
 Staircase.prototype.chooseNextVal = function(resp) {
     var stair = this.stairs;
     var ans = (resp) ? 'harder' : 'easier';
-    // console.log("ans: ", ans);
-    // console.log(this.stairs);
-    return this.timings[ans][stair.operation](stair);
+    
+    var lastDir = stair.currentDirection;
+    this.stairs.currentDirection = resp ? -1 : 1; // -1 would decrement duration and make it harder.
+
+    out = this.timings[ans][stair.operation](stair);
+    if (lastDir !== null) {
+      // want to detect 'missed it then got it'
+      // console.log("TRIAL: ", stair.values.length);
+      // console.log("lastDir: ", stair.lastDir);
+      // console.log("currentDir: ", stair.currentDirection);
+      // console.log("(lastDir !== stair.currentDirection): ", (lastDir !== stair.currentDirection))
+      // console.log("hasReversed:", stair.hasReversed);
+      // console.log("values:", stair.values);
+
+
+      this.stairs.hasReversed = this.stairs.successiveSameSteps == 0;     
+    }
+    return out;
 }

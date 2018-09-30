@@ -31,3 +31,6 @@ The Staircase is parametrized by:
 
 Make these values configurable in the browser before the block of trials.
 Get better at displaying the data.
+
+toDo:
+- implement staircase limits

@@ -3,7 +3,8 @@
 <head>
     <title>Monetary Incentive Delay Task</title>
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/css/bootstrap.min.css" integrity="sha384-MCw98/SFnGE8fJT3GXwEOngsV7Zt27NXFoaoApmYm81iuXoPkFOJwJ8ERdknLPMO" crossorigin="anonymous">
-    <link href="/jspsych-6.0.4/css/jspsych.css" rel="stylesheet" type="text/css"></link>
+    <link href="/jspsych-6.0.4/css/jspsych.css" rel="stylesheet" type="text/css" />
+    <script src="/staircase/staircase.js"></script>
     <script src="/jspsych-6.0.4/jspsych.js"></script>
     <script src="/jspsych-6.0.4/plugins/jspsych-html-keyboard-response.js"></script>
     <script src="jspsych-6.0.4/plugins/jspsych-image-keyboard-response.js"></script>
@@ -23,6 +24,18 @@
     function jitterTime(){
         return jsPsych.randomization.sampleWithoutReplacement([500, 1250, 2000], 1)[0]
     }
+
+    var staircase = new Staircase({
+        firstVal: 400,
+        down: 2,
+        factor: 1.25,
+        operation: 'multiply',
+        limits: [0, 600],
+        verbosity: 1
+    });
+
+    console.log("staircase: ", staircase);
+    console.log("next Val: ", staircase.getNext());
 
     var results = {};
     var regex = /[0-9]\.[0-9]\-[0-9]\.[0-9]\-1\.[0-9]/g;

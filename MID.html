@@ -28,17 +28,38 @@
     var staircase = new Staircase({
         firstVal: 400,
         down: 2,
-        factor: 1.25,
+        factor: 1.4,
         operation: 'multiply',
         limits: [0, 600],
         verbosity: 1
     });
 
-    console.log("staircase: ", staircase);
-    console.log("next Val: ", staircase.getNext());
+    // console.log("staircase: ", staircase);
+    // console.log("next Val: ", staircase.getValue());
+
+    // console.log("Adding miss:")
+    // staircase.addResponse(false);
+    // console.log("next Val: ", staircase.getValue());
+
+    // console.log("Adding hit:")
+    // staircase.addResponse(true);
+    // console.log("next Val: ", staircase.getValue());
+
+    // console.log("Adding hit:")
+    // staircase.addResponse(true);
+    // console.log("next Val: ", staircase.getValue());
+
+    // console.log("Adding hit:")
+    // staircase.addResponse(true);
+    // console.log("next Val: ", staircase.getValue());
+
+    // console.log("Adding miss:")
+    // staircase.addResponse(false);
+    // console.log("next Val: ", staircase.getValue());
 
     var results = {};
     var regex = /[0-9]\.[0-9]\-[0-9]\.[0-9]\-1\.[0-9]/g;
+
 	var timeline = [];
 	var instructions = {
 		type: "html-keyboard-response",
@@ -60,13 +81,16 @@
     var test = {
         type: "html-keyboard-response",
         stimulus: '<div style="display: block; height: 80px; width: 80px; background: #666; border-radius: 50%;"></div>',
-        trial_duration: 600,
+        trial_duration: function() { return staircase.getValue() },
         choices: ['Enter', 'Space'],
         data: {
             target: true
         },
-        on_finish: function(data){
-            data.hit = data.rt ? true : false;
+        on_finish: function(data) {
+            data.presentation_duration = staircase.getValue();
+            var hit = data.rt ? true : false;
+            data.hit = hit;
+            staircase.addResponse(hit);
         }
     }
     
@@ -76,34 +100,26 @@
             var targetData = JSON.parse(
                 jsPsych.data.getLastTimelineData().filter({target: true}).json()
                 ).pop();
-            console.log(targetData);
-            // console.log(JSON.parse(jsPsych.data.getLastTrialData(2).json()));
 
     		var msg = targetData.hit ? 'You Win!!!' : 'Sorry. You Lose.';
     		return '<p>' + msg + '</p>';
-        },
-        trial_duration: function() { return jitterTime(); }
+      },
+      trial_duration: function() { return jitterTime(); }
     }
     
 	var test_procedure = {
         timeline: [fixation, test, fixation, feedback],
-        repetitions: 11
+        repetitions: 20
     }
     timeline.push(test_procedure)
 
-//    timeline.push(fixation)
-//    timeline.push(test)
-//    timeline.push(fixation)
-//    timeline.push(feedback)
     
     jsPsych.init({
           timeline: timeline,
           on_finish: function() {
-              results.correct_trials = JSON.parse(jsPsych.data.get().filter({hit: true}).json())
-              results.incorrect_trials = JSON.parse(jsPsych.data.get().filter({hit: false}).json())
+              results.correct_trials = JSON.parse(jsPsych.data.get().filter({hit: true}).json());
+              results.incorrect_trials = JSON.parse(jsPsych.data.get().filter({hit: false}).json());
 
-            //   console.log('results: ', results);
-              //   jsPsych.data.displayData()
               processResults();
               displayResults();
           }

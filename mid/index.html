@@ -4,10 +4,6 @@
     <title>Monetary Incentive Delay Task</title>
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/css/bootstrap.min.css" integrity="sha384-MCw98/SFnGE8fJT3GXwEOngsV7Zt27NXFoaoApmYm81iuXoPkFOJwJ8ERdknLPMO" crossorigin="anonymous">
     <link href="/jspsych-6.0.4/css/jspsych.css" rel="stylesheet" type="text/css" />
-    <script src="/staircase/staircase.js"></script>
-    <script src="/jspsych-6.0.4/jspsych.js"></script>
-    <script src="/jspsych-6.0.4/plugins/jspsych-html-keyboard-response.js"></script>
-    <script src="jspsych-6.0.4/plugins/jspsych-image-keyboard-response.js"></script>
     <style>
         #results-wr {
             margin-top: 1rem;
@@ -20,10 +16,19 @@
 <script src="https://code.jquery.com/jquery-3.3.1.slim.min.js" integrity="sha384-q8i/X+965DzO0rT7abK41JStQIAqVgRVzpbzo5smXKp4YfRvH+8abtTE1Pi6jizo" crossorigin="anonymous"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.3/umd/popper.min.js" integrity="sha384-ZMP7rVo3mIykV+2+9J3UJ46jBk0WLaUAdn689aCwoqbBJiSnjAK/l8WvCWPIPm49" crossorigin="anonymous"></script>
 <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/js/bootstrap.min.js" integrity="sha384-ChfqqxuZUCnJSK3+MXmPNIyE6ZbWh2IMqE241rYiqJxyMiZ6OW/JmZQ5stwEULTy" crossorigin="anonymous"></script>
+<script src="https://canvasjs.com/assets/script/canvasjs.min.js"></script>
+
+<script src="/jspsych-6.0.4/jspsych.js"></script>
+<script src="/jspsych-6.0.4/plugins/jspsych-html-keyboard-response.js"></script>
+<script src="/display/graph.js"></script>
+<script src="/staircase/staircase.js"></script>
 <script>
     function jitterTime(){
         return jsPsych.randomization.sampleWithoutReplacement([500, 1250, 2000], 1)[0]
     }
+
+    var numTrials = 6;
+    var results = {};
 
     var staircase = new Staircase({
         firstVal: 400,
@@ -34,41 +39,15 @@
         verbosity: 1
     });
 
-    // console.log("staircase: ", staircase);
-    // console.log("next Val: ", staircase.getValue());
-
-    // console.log("Adding miss:")
-    // staircase.addResponse(false);
-    // console.log("next Val: ", staircase.getValue());
-
-    // console.log("Adding hit:")
-    // staircase.addResponse(true);
-    // console.log("next Val: ", staircase.getValue());
-
-    // console.log("Adding hit:")
-    // staircase.addResponse(true);
-    // console.log("next Val: ", staircase.getValue());
-
-    // console.log("Adding hit:")
-    // staircase.addResponse(true);
-    // console.log("next Val: ", staircase.getValue());
-
-    // console.log("Adding miss:")
-    // staircase.addResponse(false);
-    // console.log("next Val: ", staircase.getValue());
-
-    var results = {};
-    var regex = /[0-9]\.[0-9]\-[0-9]\.[0-9]\-1\.[0-9]/g;
-
-	var timeline = [];
-	var instructions = {
-		type: "html-keyboard-response",
-		stimulus: "<p>This block will consist of 25 trials.</p>" +
-			"<p>The fixation will appear followed by the target. Try to press the ENTER key as quickly as possible while the target is displayed." +
-			"<p></p><p>Press any key to begin.</p>"
-	}
-	
-	timeline.push(instructions)
+    var timeline = [];
+    var instructions = {
+      type: "html-keyboard-response",
+      stimulus: "<p>This block will consist of 25 trials.</p>" +
+        "<p>The fixation will appear followed by the target. Try to press the ENTER key as quickly as possible while the target is displayed." +
+        "<p></p><p>Press any key to begin.</p>"
+    }
+    
+    timeline.push(instructions)
 	
 	var fixation = {
         type: 'html-keyboard-response',
@@ -109,7 +88,7 @@
     
 	var test_procedure = {
         timeline: [fixation, test, fixation, feedback],
-        repetitions: 20
+        repetitions: numTrials
     }
     timeline.push(test_procedure)
 
@@ -117,31 +96,59 @@
     jsPsych.init({
           timeline: timeline,
           on_finish: function() {
-              results.correct_trials = JSON.parse(jsPsych.data.get().filter({hit: true}).json());
-              results.incorrect_trials = JSON.parse(jsPsych.data.get().filter({hit: false}).json());
-
+              results.trials = JSON.parse(
+                jsPsych.data.get().filter({target: true}).json()
+              );
+                
               processResults();
               displayResults();
           }
     })
 
     function processResults() {
-        console.log('results: ', results);
+        var numHits = 0;
+        var numMisses = 0;
+        results.dataPoints = [];
         
-        results.correct_trials.forEach(function (trial) {
-            delete trial.stimulus;
-        })
-        results.incorrect_trials.forEach(function (trial) {
-            delete trial.stimulus;
-        })
-        results.success_rate = results.correct_trials.length / (results.correct_trials.length + results.incorrect_trials.length);
+        results.trials.forEach( function(trial) {
+          delete trial.stimulus;
+          var datapoint = {
+            x: trial.time_elapsed / 1000,
+            y: trial.presentation_duration,
+          };
+
+          if (trial.hit) {
+            datapoint.markerColor = 'green';
+            datapoint.markerType = 'triangle';
+            numHits++;
+          }
+          else {
+            datapoint.markerColor = 'red';
+            datapoint.markerType = 'cross';
+            numMisses++;
+          }
+          results.dataPoints.push(datapoint);
+        });
+
+        results.numHits = numHits;
+        results.numMisses = numMisses;
+
+        results.successRate = numHits / (numHits + numMisses);
     }
+
+
     function displayResults() {
         $('.jspsych-content-wrapper').remove();
         var resultsHtml = $('<div id="results-wr" class="container"><h1>Results:</h1></div>');
-        resultsHtml.append(`<p>You scored ${results.success_rate * 100} %<p>`);
-        resultsHtml.append(prettyPrint(results));
+        resultsHtml.append(`<p>You scored ${results.successRate * 100} %<p><hr><hr>`);
+        
+        resultsHtml.append('<div id="theGraph" style="height: 450px;"></div>');
+        resultsHtml.append('<hr><hr>');
         $('body').append(resultsHtml);
+
+        drawSampleChart(results);
+        resultsHtml.append(prettyPrint(results));
+
     }
 
     function prettyPrint(obj) {

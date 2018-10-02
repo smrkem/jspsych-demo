@@ -11,10 +11,34 @@
     </style>
 </head>
 <body>
-    <div id="results"></div>
+  <div class="container">
+      <div id="experiment-intro" style="text-align: center;">
+        <h1>Welcome to the MID task.</h1>
+        <table style="margin: auto; text-align: left;">
+          <tr>
+            <td>num trials:</td>
+            <td><input type="number" name="numTrials" value="11" step="1" min="1" /></td>
+          </tr>
+          <tr>
+            <td>n_down:</td>
+            <td><input type="number" name="nDown" value="2" step="1" min="1" /></td>
+          </tr>
+          <tr>  
+            <td>factor:</td>
+            <td><input type="number" name="factor" value="1.3" step="0.01" min="1" /></td>
+          </tr>
+          <tr>  
+            <td>Initial Value:</td>
+            <td><input type="number" name="initialValue" value="350" step="1" min="100" /> ms</td>
+          </tr>
+        </table>
+        <br/>
+        <button id="runExperiment" class="btn btn-primary">Run Experiment</button>
+      </div>
+  </div>
 </body>
 <script src="https://code.jquery.com/jquery-3.3.1.slim.min.js" integrity="sha384-q8i/X+965DzO0rT7abK41JStQIAqVgRVzpbzo5smXKp4YfRvH+8abtTE1Pi6jizo" crossorigin="anonymous"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.3/umd/popper.min.js" integrity="sha384-ZMP7rVo3mIykV+2+9J3UJ46jBk0WLaUAdn689aCwoqbBJiSnjAK/l8WvCWPIPm49" crossorigin="anonymous"></script>
+<script src="/vendor/popper.js"></script>
 <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/js/bootstrap.min.js" integrity="sha384-ChfqqxuZUCnJSK3+MXmPNIyE6ZbWh2IMqE241rYiqJxyMiZ6OW/JmZQ5stwEULTy" crossorigin="anonymous"></script>
 <script src="https://canvasjs.com/assets/script/canvasjs.min.js"></script>
 
@@ -22,140 +46,92 @@
 <script src="/jspsych-6.0.4/plugins/jspsych-html-keyboard-response.js"></script>
 <script src="/display/graph.js"></script>
 <script src="/staircase/staircase.js"></script>
+<script src="experiment.js"></script>
 <script>
-    function jitterTime(){
-        return jsPsych.randomization.sampleWithoutReplacement([500, 1250, 2000], 1)[0]
+var results = {};
+var experiment = {
+  staircase: null
+};
+
+$(function() {
+  $("#runExperiment").click(startExperiment);
+});
+
+function startExperiment() {
+  var experimentSettings = getSettings();
+  var timeline = getMIDTimeline(experimentSettings);
+  jsPsych.init({
+    timeline: timeline,
+    on_finish: function() {
+      results.trials = JSON.parse(
+        jsPsych.data.get().filter({target: true}).json()
+      );
+      processResults();
+      displayResults();
     }
+  });
+}
 
-    var numTrials = 6;
-    var results = {};
+function getSettings() {
+  return {
+    numTrials: parseInt($('input[name="numTrials"]').val()),
+    nDown: parseInt($('input[name="nDown"]').val()),
+    factor: parseFloat($('input[name="factor"]').val()),
+    firstVal: parseInt($('input[name="initialValue"]').val())
+  }
+}
 
-    var staircase = new Staircase({
-        firstVal: 400,
-        down: 2,
-        factor: 1.4,
-        operation: 'multiply',
-        limits: [0, 600],
-        verbosity: 1
+function processResults() {
+    var numHits = 0;
+    var numMisses = 0;
+    results.dataPoints = [];
+    
+    results.trials.forEach( function(trial) {
+      delete trial.stimulus;
+      var datapoint = {
+        x: trial.time_elapsed / 1000,
+        y: trial.presentation_duration,
+      };
+
+      if (trial.hit) {
+        datapoint.markerColor = 'green';
+        datapoint.markerType = 'triangle';
+        numHits++;
+      }
+      else {
+        datapoint.markerColor = 'red';
+        datapoint.markerType = 'cross';
+        numMisses++;
+      }
+      results.dataPoints.push(datapoint);
     });
 
-    var timeline = [];
-    var instructions = {
-      type: "html-keyboard-response",
-      stimulus: "<p>This block will consist of 25 trials.</p>" +
-        "<p>The fixation will appear followed by the target. Try to press the ENTER key as quickly as possible while the target is displayed." +
-        "<p></p><p>Press any key to begin.</p>"
-    }
+    results.numHits = numHits;
+    results.numMisses = numMisses;
+
+    results.successRate = numHits / (numHits + numMisses);
+}
+
+
+function displayResults() {
+    $('.jspsych-content-wrapper').remove();
+    var resultsHtml = $('<div id="results-wr" class="container"><h1>Results:</h1></div>');
+    resultsHtml.append(`<p>You scored ${results.successRate * 100} %<p><hr><hr>`);
     
-    timeline.push(instructions)
-	
-	var fixation = {
-        type: 'html-keyboard-response',
-        myvar: 'fixation',
-        stimulus: '<div style="font-size:60px;">+</div>',
-        choices: jsPsych.NO_KEYS,
-        trial_duration: function() { return jitterTime(); }
-    }
-    
-    var test = {
-        type: "html-keyboard-response",
-        stimulus: '<div style="display: block; height: 80px; width: 80px; background: #666; border-radius: 50%;"></div>',
-        trial_duration: function() { return staircase.getValue() },
-        choices: ['Enter', 'Space'],
-        data: {
-            target: true
-        },
-        on_finish: function(data) {
-            data.presentation_duration = staircase.getValue();
-            var hit = data.rt ? true : false;
-            data.hit = hit;
-            staircase.addResponse(hit);
-        }
-    }
-    
-    var feedback = {
-    	type: "html-keyboard-response",
-    	stimulus: function(){
-            var targetData = JSON.parse(
-                jsPsych.data.getLastTimelineData().filter({target: true}).json()
-                ).pop();
+    resultsHtml.append('<div id="theGraph" style="height: 450px;"></div>');
+    resultsHtml.append('<hr><hr>');
+    $('body').append(resultsHtml);
 
-    		var msg = targetData.hit ? 'You Win!!!' : 'Sorry. You Lose.';
-    		return '<p>' + msg + '</p>';
-      },
-      trial_duration: function() { return jitterTime(); }
-    }
-    
-	var test_procedure = {
-        timeline: [fixation, test, fixation, feedback],
-        repetitions: numTrials
-    }
-    timeline.push(test_procedure)
+    drawSampleChart(results);
+    resultsHtml.append(prettyPrint(results));
 
-    
-    jsPsych.init({
-          timeline: timeline,
-          on_finish: function() {
-              results.trials = JSON.parse(
-                jsPsych.data.get().filter({target: true}).json()
-              );
-                
-              processResults();
-              displayResults();
-          }
-    })
+}
 
-    function processResults() {
-        var numHits = 0;
-        var numMisses = 0;
-        results.dataPoints = [];
-        
-        results.trials.forEach( function(trial) {
-          delete trial.stimulus;
-          var datapoint = {
-            x: trial.time_elapsed / 1000,
-            y: trial.presentation_duration,
-          };
-
-          if (trial.hit) {
-            datapoint.markerColor = 'green';
-            datapoint.markerType = 'triangle';
-            numHits++;
-          }
-          else {
-            datapoint.markerColor = 'red';
-            datapoint.markerType = 'cross';
-            numMisses++;
-          }
-          results.dataPoints.push(datapoint);
-        });
-
-        results.numHits = numHits;
-        results.numMisses = numMisses;
-
-        results.successRate = numHits / (numHits + numMisses);
-    }
-
-
-    function displayResults() {
-        $('.jspsych-content-wrapper').remove();
-        var resultsHtml = $('<div id="results-wr" class="container"><h1>Results:</h1></div>');
-        resultsHtml.append(`<p>You scored ${results.successRate * 100} %<p><hr><hr>`);
-        
-        resultsHtml.append('<div id="theGraph" style="height: 450px;"></div>');
-        resultsHtml.append('<hr><hr>');
-        $('body').append(resultsHtml);
-
-        drawSampleChart(results);
-        resultsHtml.append(prettyPrint(results));
-
-    }
-
-    function prettyPrint(obj) {
-        var dataString = JSON.stringify(obj, null, 3);
-        var styles = 'font-size: 0.7rem; background: #eee; border: 1px solid #aaa;'
-        return `<pre style="${styles}">${dataString}</pre>`;
-    }
+function prettyPrint(obj) {
+    var dataString = JSON.stringify(obj, null, 3);
+    var styles = 'font-size: 0.7rem; background: #eee; border: 1px solid #aaa;'
+    return `<pre style="${styles}">${dataString}</pre>`;
+}
 
 </script>
 </html>
